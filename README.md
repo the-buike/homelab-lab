@@ -4,7 +4,7 @@ A hybrid home lab built on real hardware. Routing, switching, VLAN segmentation,
 
 <p align="center">
   <img src="images/topology.png" alt="Network topology diagram" width="58%" />
-  <img src="images/physical-build.jpg" alt="Physical wall-mounted build" width="33%" />
+  <img src="images/physical-build.jpeg" alt="Physical wall-mounted build" width="33%" />
 </p>
 
 <p align="center"><em>Left: logical topology. Right: the physical build, wall-mounted with printed asset labels on every device. MikroTik hEX (RTR-HEX01) top left, HP EliteDesk running Proxmox (PVE01) top right, TP-Link managed switch (SW-TPL01) center, MoCA adapter and storage enclosure below.</em></p>
