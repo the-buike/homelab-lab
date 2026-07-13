@@ -235,12 +235,12 @@ traceroute 10.0.20.101                # Inter-VLAN path goes through the router?
 
 ## 7. Change Log
 
-| Date | Change | Reason |
+| Date | Change | Phase |
 |---|---|---|
-| YYYY-MM-DD | Initial core build: WAN over MoCA, base LAN, Proxmox online | Phase 1 |
-| YYYY-MM-DD | VLANs 10/20/30 created, trunking through switch, per-VLAN DHCP | Phase 2 |
-| YYYY-MM-DD | Firewall zone policy between VLANs | Phase 2 |
-| YYYY-MM-DD | DC01 promoted, VLAN 10/20 DHCP pointed at 10.0.10.10 for DNS | Phase 3 |
-| YYYY-MM-DD | Tailscale deployed after CGNAT blocked inbound WireGuard | Phase 4 |
+| 2026-04-11 | Core build day one: MoCA WAN delivery over room coax confirmed, Ubuntu Server 24.04 installed on the EliteDesk with SSH and static IP | 1 |
+| 2026-04-15 | Ethernet cables arrived. MikroTik, switch, and EliteDesk cabled and online. Lab has end-to-end internet through the hEX | 1 |
+| 2026-04-15 | WireGuard abandoned: CGNAT on Xfinity plus same-network hairpin made inbound tunnels unworkable. Tailscale deployed on the EliteDesk instead | 4 |
+| 2026-07-05 | VLANs 10/20/30 built from the RouterOS CLI: VLAN interfaces, gateway IPs, per-VLAN DHCP pools, inter-VLAN firewall filter rules. Config exported as homelab-config.rsc and pushed to GitHub | 2 |
+| 2026-07-05 | EliteDesk wiped and reinstalled with Proxmox VE (pve, 192.168.88.10). VM 100 (ubuntu-services, VLAN 20, 10.0.20.101) created with Tailscale. VM 101 (Windows Server 2022, VLAN 10) created with VirtIO drivers | 1 |
+| 2026-07-13 | DC01 given static 10.0.10.10 and promoted to domain controller for homelab.local. AD DS and DNS verified, OU structure created (Employees, Workstations, Groups, Service Accounts) | 3 |
 
-Fill in real dates from your build notes and keep adding rows. A change log that grows over time is the single strongest signal that a lab is operated, not just built.
