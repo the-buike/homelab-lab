@@ -1,12 +1,20 @@
-# Homelab Build: VLAN Segmentation + Monitoring Stack
+# Homelab: VLAN Segmentation + Monitoring
 
 ![Homelab VLAN Segmentation and Monitoring architecture diagram](./images/homelab-vlan-monitoring-banner.png)
 
-This is a full walkthrough of how I rebuilt my homelab's network segmentation and added a monitoring stack, start to finish, including everything that went wrong along the way.
+I rebuilt my homelab's network segmentation from scratch, added a dedicated personal VLAN with one-way trust isolation, provisioned three new Ubuntu Server VMs, stood up a full monitoring stack (Prometheus + SNMP Exporter + Grafana), and extended remote access over Tailscale into the lab subnet.
+
+## Stack
+
+- **Router/Firewall:** MikroTik hEX S (RouterOS 7.20.7)
+- **Switch:** TP-Link TL-SG108E (802.1Q managed)
+- **Hypervisor:** Proxmox VE 9.2.2, single node, HP EliteDesk 800 G1 (i5-4590T, 16GB RAM)
+- **Monitoring:** Prometheus, SNMP Exporter, Grafana (all bare-metal systemd services, no containers)
+- **Remote access:** Tailscale, with subnet routing into the lab VLAN
 
 ## Starting point
 
-Before this build, my MikroTik hEX S was already routing three VLANs on a Proxmox host (HP EliteDesk 800 G1, i5-4590T, 16GB RAM):
+Before this build, my MikroTik hEX S was already routing three VLANs on the Proxmox host:
 
 <table>
 <tr><th>VLAN</th><th>Subnet</th><th>Purpose</th></tr>
