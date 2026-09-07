@@ -12,6 +12,17 @@ I rebuilt my homelab's network segmentation from scratch, added a dedicated pers
 - **Monitoring:** Prometheus, SNMP Exporter, Grafana (all bare-metal systemd services, no containers)
 - **Remote access:** Tailscale, with subnet routing into the lab VLAN
 
+## Physical setup
+
+<details>
+<summary>Wall-mounted rack (click to expand)</summary>
+
+![Physical wall-mounted homelab hardware](./images/physical-build.jpeg)
+
+MikroTik hEX S (top left), HP EliteDesk 800 G1 running Proxmox (top right, wall-mounted), TP-Link TL-SG108E switch (center), Frontier ONT (below the MikroTik).
+
+</details>
+
 ## Starting point
 
 Before this build, my MikroTik hEX S was already routing three VLANs on the Proxmox host:
@@ -123,17 +134,6 @@ Once everything was working, I locked in static DHCP reservations for the lab de
 /ip dhcp-server lease add address=10.0.20.107 mac-address=BC:24:11:62:14:D3 server=dhcp-vlan20 comment="linux-practice01"
 /ip dhcp-server lease add address=10.0.20.110 mac-address=0C:EF:15:05:DB:31 server=dhcp-vlan20 comment="TL-SG108E-switch"
 ```
-
-## Physical setup
-
-<details>
-<summary>Wall-mounted rack (click to expand)</summary>
-
-![Physical wall-mounted homelab hardware](./images/physical-build.jpeg)
-
-MikroTik hEX S (top left), HP EliteDesk 800 G1 running Proxmox (top right, wall-mounted), TP-Link TL-SG108E switch (center), Frontier ONT (below the MikroTik).
-
-</details>
 
 ## Phase 2: Provisioning the VMs
 
