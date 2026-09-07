@@ -152,6 +152,13 @@ The 4-core host CPU meant these three VMs alone (5 vCPU assigned) already oversu
 
 All three came up correctly on VLAN 20 with the expected hostnames, confirmed with `hostnamectl status` on each.
 
+<details>
+<summary>Proof: all three VMs provisioned (click to expand)</summary>
+
+![qm list showing all three VMs provisioned with correct specs](./images/qm-list-vms-provisioned.png)
+
+</details>
+
 ## Phase 3: Monitoring stack
 
 I chose Prometheus, SNMP Exporter, and Grafana over Zabbix. Zabbix is arguably more turnkey for pure SNMP polling, but this stack is closer to what I'll actually run into in cloud-focused work, which fits my current AWS-first cert path better.
@@ -236,6 +243,13 @@ After that, install and service start went cleanly. Connected Grafana to Prometh
 - Interface status (`ifOperStatus{ifName=~"vlan.*"}`)
 - Broadcast packet rate (`rate(ifHCInBroadcastPkts{ifName=~"vlan.*"}[5m])`)
 - Bandwidth gauge (`rate(ifHCInOctets{ifName=~"vlan.*"}[5m]) * 8`)
+
+<details>
+<summary>Proof: Grafana dashboard live (click to expand)</summary>
+
+![Grafana dashboard showing VLAN interface traffic, status, broadcast traffic, and bandwidth](./images/grafana-dashboard.png)
+
+</details>
 
 ### TP-Link switch SNMP
 
