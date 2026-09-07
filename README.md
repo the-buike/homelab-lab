@@ -1,119 +1,297 @@
-# BUIKE-LAB (homelab.local)
+# Homelab Build: VLAN Segmentation + Monitoring Stack
 
-A hybrid home lab built on real hardware. Routing, switching, VLAN segmentation, virtualization, and Windows domain services, all configured by hand and documented like a production environment.
+![Homelab VLAN Segmentation and Monitoring architecture diagram](./images/homelab-vlan-monitoring-banner.png)
 
-<p align="center">
-  <img src="images/topology.png" alt="Network topology diagram" width="58%" />
-  <img src="images/physical-build.jpeg" alt="Physical wall-mounted build" width="33%" />
-</p>
+This is a full walkthrough of how I rebuilt my homelab's network segmentation and added a monitoring stack, start to finish, including everything that went wrong along the way.
 
-<p align="center"><em>Left: logical topology. Right: the physical build, wall-mounted with printed asset labels on every device. MikroTik hEX (RTR-HEX01) top left, HP EliteDesk running Proxmox (PVE01) top right, TP-Link managed switch (SW-TPL01) center, MoCA adapter and storage enclosure below.</em></p>
+## Starting point
 
----
+Before this build, my MikroTik hEX S was already routing three VLANs on a Proxmox host (HP EliteDesk 800 G1, i5-4590T, 16GB RAM):
 
-## Why This Lab Exists
+<table>
+<tr><th>VLAN</th><th>Subnet</th><th>Purpose</th></tr>
+<tr><td>10</td><td>10.0.10.0/24</td><td>Management</td></tr>
+<tr><td>20</td><td>10.0.20.0/24</td><td>Lab servers</td></tr>
+<tr><td>30</td><td>10.0.30.0/24</td><td>Lab clients</td></tr>
+</table>
 
-I am building toward network and cloud engineering roles, and I wanted hands-on experience you cannot get from a cloud trial. Every device here is physical hardware I bought, mounted, cabled, and configured myself. The router has no GUI shortcuts in my workflow. Everything on the MikroTik is done from the RouterOS CLI.
+My personal devices (laptop, phone) shared the untagged bridge network (192.168.88.0/24) with no isolation from the lab at all. That was the first thing I set out to fix.
 
-The lab also follows real operational practices: printed asset labels on every device, a documented cable schedule, and writeups for every build phase including what broke and how I fixed it.
+## Phase 1: Adding a personal VLAN with one-way trust
 
----
+The goal: my laptop should be able to reach into the lab to manage it, but nothing in the lab should be able to reach back out to my laptop.
 
-## Hardware
+### Renaming the existing VLANs
 
-| Asset ID | Device | Role | IP |
-|---|---|---|---|
-| RTR-HEX01 | MikroTik hEX | Router / Firewall | 192.168.88.1 |
-| SW-TPL01 | TP-Link TL-SG108E | Managed switch, VLAN trunk | 192.168.88.x |
-| PVE01 | HP EliteDesk Mini | Proxmox VE hypervisor host | 192.168.88.10 |
-| MOCA01 | Frontier FCA252 | MoCA adapter, WAN delivery over room coax | Bridge |
-| STOR01 | 2-Bay USB 3.0 Enclosure | Storage attached to PVE01 | N/A |
-| LAB-EVE01 | Dell Latitude 7420 | EVE-NG lab host for Cisco simulation | Standalone |
-
-Internet comes into the lab room over the existing coax run. The Xfinity gateway sits in the sitting room, and a MoCA adapter pair carries the connection to the MikroTik WAN port. Family devices stay on the Xfinity WiFi and never touch the lab network.
-
----
-
-## Network Design
-
-### VLANs
-
-| VLAN | Name | Subnet | Purpose |
-|---|---|---|---|
-| 10 | Management | 10.0.10.0/24 | Domain controller, infrastructure management |
-| 20 | Services | 10.0.20.0/24 | Application and service VMs |
-| 30 | DMZ | 10.0.30.0/24 | Reserved for exposed services |
-
-VLANs are tagged 802.1Q from the MikroTik through the TP-Link switch to the Proxmox host. Each VLAN has its own DHCP pool on the router, and firewall rules control what can talk to what between zones.
-
-### Virtual Machines
-
-| VM ID | Hostname | OS | IP | VLAN |
-|---|---|---|---|---|
-| 100 | ubuntu-services | Ubuntu Server 24.04 | 10.0.20.101 | 20 |
-| 101 | DC01 | Windows Server 2022 | 10.0.10.10 | 10 |
-
-DC01 is promoted to domain controller for **homelab.local**, running AD DS and DNS with an OU structure for Employees, Workstations, Groups, and Service Accounts.
-
-### Remote Access
-
-Tailscale connects the lab to my laptop from anywhere. I originally planned a WireGuard tunnel, but Xfinity puts residential connections behind CGNAT, so there is no public IP to receive inbound connections. Tailscale solved it because both ends dial out. That failure and the reasoning are documented in the remote access writeup.
-
----
-
-## Operational Practices
-
-**Asset labels.** Every device carries a printed label with its asset ID, hostname, IP, and role. You can see them in the build photo. Label sources live in [`assets/`](assets/).
-
-**Cable schedule.** Every cable run is numbered and documented, from COAX-1 (the MoCA run from the sitting room) through CAB-01 to CAB-03 (the Ethernet runs between router, switch, and host).
-
-| Cable ID | From | To | Type |
-|---|---|---|---|
-| COAX-1 | Xfinity gateway (sitting room) | Frontier FCA252 | Coax (MoCA) |
-| CAB-01 | FCA252 | RTR-HEX01 WAN | Cat6 |
-| CAB-02 | RTR-HEX01 | SW-TPL01 (trunk) | Cat6 |
-| CAB-03 | SW-TPL01 | PVE01 | Cat6 |
-
-**Ticketing (planned).** The next phase adds GLPI so every lab incident gets logged as a ticket with a root cause and resolution.
-
----
-
-## Build Phases
-
-| Phase | Scope | Status |
-|---|---|---|
-| 1. Core Build | MoCA WAN delivery, MikroTik CLI config, switch, Proxmox install | Complete |
-| 2. VLAN Segmentation | 802.1Q trunking, per-VLAN DHCP, inter-VLAN firewall rules | Complete |
-| 3. Domain Services | Windows Server 2022 VM, DC promotion, AD DS, DNS, OU structure | Complete |
-| 4. Remote Access | Tailscale mesh after CGNAT killed the WireGuard plan | Complete |
-| 5. Documentation & Labeling | Topology diagram, asset labels, cable schedule | Complete |
-| 6. Enterprise Simulation | Fictional company: EVE-NG campus + Azure-hosted AD over site-to-site VPN | In Progress |
-| 7. Monitoring & Ticketing | GLPI ticketing, SNMP/flow monitoring | Planned |
-
-Each completed phase has its own writeup in [`docs/`](docs/).
-
----
-
-## Things That Broke
-
-A few highlights, with full details in the phase writeups:
-
-- **WireGuard behind CGNAT.** No public IP on Xfinity residential service means inbound tunnels are dead on arrival. Switched to Tailscale, which establishes connections outbound from both sides.
-- **VT-x blocked on the EVE-NG laptop.** Windows Virtualization Based Security and Credential Guard were holding the virtualization extensions hostage, so VMware could not pass them to EVE-NG. Fixed with Microsoft's DG Readiness Tool.
-
----
-
-## Repo Structure
+First I renamed the existing VLAN interfaces on the MikroTik to be more descriptive:
 
 ```
-.
-├── README.md
-├── images/          Topology diagram, build photos
-├── docs/            Phase writeups (core build, VLANs, AD DS, remote access)
-├── configs/         Sanitized MikroTik exports and switch settings
-└── assets/          Asset label sources (SVG/PDF) and cable schedule
+/interface vlan set [find name=vlan10-mgmt] name=vlan10-management
+/interface vlan set [find name=vlan20-services] name=vlan20-lab-servers
+/interface vlan set [find name=vlan30-dmz] name=vlan30-lab-clients
 ```
 
----
+I kept the existing 10.0.x.0/24 addressing rather than renumbering to match a reference architecture doc I'd been using for planning, which used 10.10.x.0/24. Renumbering would have meant touching DHCP scopes and static IPs on my domain controller for no real benefit.
 
-*Built and maintained by Chibuike "BK" Okerulu. Network+ certified, AZ-104 in progress.*
+### Building VLAN 40
+
+Created the new VLAN on the same trunk interface, with its own subnet, address, and DHCP pool:
+
+```
+/interface vlan add interface=ether2 name=vlan40-personal vlan-id=40
+/ip address add address=10.0.40.1/24 interface=vlan40-personal network=10.0.40.0
+/ip pool add name=pool-vlan40 ranges=10.0.40.100-10.0.40.200
+/ip dhcp-server add address-pool=pool-vlan40 interface=vlan40-personal name=dhcp-vlan40
+/ip dhcp-server network add address=10.0.40.0/24 dns-server=10.0.40.1 gateway=10.0.40.1
+```
+
+### Trusted device setup
+
+I reserved a fixed IP for my laptop's MAC address and added it to a trusted address list, so the firewall rules could reference "my laptop specifically" rather than the whole VLAN 40 subnet:
+
+```
+/ip dhcp-server lease add address=10.0.40.10 mac-address=C8:A3:62:04:C8:2E server=dhcp-vlan40 comment="trusted-laptop"
+/ip firewall address-list add address=10.0.40.10 list=trusted-lab-access comment="trusted laptop"
+```
+
+### Firewall isolation
+
+Built an address list for the lab networks, then three rules: trusted device to lab is allowed but only on specific ports, anything else on VLAN 40 to the lab is blocked, and lab to VLAN 40 is blocked in every direction:
+
+```
+/ip firewall address-list add address=10.0.10.0/24 list=lab-networks comment="mgmt"
+/ip firewall address-list add address=10.0.20.0/24 list=lab-networks comment="lab-servers"
+/ip firewall address-list add address=10.0.30.0/24 list=lab-networks comment="lab-clients"
+
+/ip firewall filter add action=accept chain=forward src-address-list=trusted-lab-access dst-address-list=lab-networks protocol=tcp dst-port=22,8291,3389,80,443,3000,9090 comment="trusted device to lab - allowed ports"
+/ip firewall filter add action=drop chain=forward src-address=10.0.40.0/24 dst-address-list=lab-networks comment="vlan40 to lab - block untrusted"
+/ip firewall filter add action=drop chain=forward src-address-list=lab-networks dst-address=10.0.40.0/24 comment="lab to vlan40 - block"
+```
+
+I went with allowing only specific management ports (SSH, Winbox, RDP, plus common web ports for anything I'd want to check in a browser) rather than the whole subnet, since a fully open personal-to-lab rule would mean a compromised laptop has unrestricted access to everything in the lab, not just the tools I actually use to manage it.
+
+### Physical switch config
+
+This is where I found something I hadn't expected: 802.1Q VLAN filtering had never actually been enabled on my TP-Link TL-SG108E switch. The router-side VLANs had apparently been working through some other path, but the switch itself was passing everything through flat.
+
+I enabled 802.1Q VLAN mode on the switch and built out all four VLANs properly:
+
+<table>
+<tr><th>VLAN</th><th>Port 1 (MikroTik)</th><th>Port 2 (EliteDesk)</th><th>Port 3 (laptop)</th></tr>
+<tr><td>10</td><td>Tagged</td><td>Tagged</td><td>Not member</td></tr>
+<tr><td>20</td><td>Tagged</td><td>Tagged</td><td>Not member</td></tr>
+<tr><td>30</td><td>Tagged</td><td>Tagged</td><td>Not member</td></tr>
+<tr><td>40</td><td>Tagged</td><td>Not member</td><td>Untagged</td></tr>
+</table>
+
+Then set Port 3's PVID to 40, so untagged frames arriving from my laptop get classified onto VLAN 40:
+
+Switch web UI: 802.1Q PVID Setting → Port 3 → PVID 40 → Apply.
+
+### The lockout
+
+After making this change, I lost SSH and Winbox access to the router entirely, from any device on VLAN 40, including my laptop.
+
+Root cause: none of the four VLAN interfaces were members of the router's `LAN` interface list, and the router's default input-chain firewall rule drops anything not arriving from an interface on that list. This wasn't unique to VLAN 40, it affected all four VLANs, I just hadn't noticed with 10/20/30 because I'd never tried to SSH into the router directly from any of them before.
+
+Recovery: I moved my laptop's cable to an untouched switch port still on the old untagged network (192.168.88.0/24), which still had router access since the `bridge` interface was in the `LAN` list. From there I added all four VLAN interfaces to the list:
+
+```
+/interface list member add interface=vlan10-management list=LAN
+/interface list member add interface=vlan20-lab-servers list=LAN
+/interface list member add interface=vlan30-lab-clients list=LAN
+/interface list member add interface=vlan40-personal list=LAN
+```
+
+Moved my laptop back to Port 3, and everything worked as intended: my laptop reachable into the lab on management ports, nothing in the lab able to reach back.
+
+## Phase 1.5: Static IP reservations
+
+Once everything was working, I locked in static DHCP reservations for the lab devices so their IPs would never drift on lease renewal, including for VMs provisioned later in this build:
+
+```
+/ip dhcp-server lease add address=10.0.20.108 mac-address=BC:24:11:C6:6C:CE server=dhcp-vlan20 comment="ubuntu-services"
+/ip dhcp-server lease add address=10.0.20.109 mac-address=BC:24:11:6B:34:84 server=dhcp-vlan20 comment="monitoring01"
+/ip dhcp-server lease add address=10.0.20.107 mac-address=BC:24:11:62:14:D3 server=dhcp-vlan20 comment="linux-practice01"
+/ip dhcp-server lease add address=10.0.20.110 mac-address=0C:EF:15:05:DB:31 server=dhcp-vlan20 comment="TL-SG108E-switch"
+```
+
+## Physical setup
+
+<details>
+<summary>Wall-mounted rack (click to expand)</summary>
+
+![Physical wall-mounted homelab hardware](./images/physical-build.jpeg)
+
+MikroTik hEX S (top left), HP EliteDesk 800 G1 running Proxmox (top right, wall-mounted), TP-Link TL-SG108E switch (center), Frontier ONT (below the MikroTik).
+
+</details>
+
+## Phase 2: Provisioning the VMs
+
+I cleared out old VMs and provisioned three fresh Ubuntu Server 26.04 VMs via a bash script on the Proxmox host, using `qm create`:
+
+<table>
+<tr><th>VM</th><th>ID</th><th>Specs</th><th>Purpose</th></tr>
+<tr><td>ubuntu-services</td><td>102</td><td>2 vCPU / 2GB RAM / 60GB</td><td>General services, planned NAS/Samba</td></tr>
+<tr><td>monitoring01</td><td>103</td><td>2 vCPU / 2GB RAM / 30GB</td><td>Monitoring stack</td></tr>
+<tr><td>linux-practice01</td><td>104</td><td>1 vCPU / 1GB RAM / 30GB</td><td>Disposable Linux practice sandbox</td></tr>
+</table>
+
+The 4-core host CPU meant these three VMs alone (5 vCPU assigned) already oversubscribed the physical core count, which is fine since Proxmox timeslices and none of them need to be under heavy load simultaneously.
+
+`linux-practice01`'s installer hung on "downloading and installing security updates" for over five minutes with 1GB RAM. I bumped it to 2GB and restarted the install, which resolved it. Likely the installer process plus package unpacking needed more headroom than 1GB comfortably provided.
+
+All three came up correctly on VLAN 20 with the expected hostnames, confirmed with `hostnamectl status` on each.
+
+## Phase 3: Monitoring stack
+
+I chose Prometheus, SNMP Exporter, and Grafana over Zabbix. Zabbix is arguably more turnkey for pure SNMP polling, but this stack is closer to what I'll actually run into in cloud-focused work, which fits my current AWS-first cert path better.
+
+### Prometheus
+
+Installed via binary (not the snap package, for config flexibility) with a script that auto-detects the latest release version. Created a dedicated `prometheus` system user with no login shell, standard practice for service accounts.
+
+First run failed. The script used `set -e` and died partway through when `mv consoles/` failed, since that Prometheus release no longer ships the legacy `consoles/` folder. That meant `prometheus.yml` never got moved into `/etc/prometheus/`, and systemd showed the service as briefly "active" right after each restart before it crashed on the missing config file. I only saw the actual error clearly with `journalctl -u prometheus`, since the live `systemctl status` output truncated the message. Fixed by manually moving the config file over.
+
+```
+[Unit]
+Description=Prometheus Monitoring
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+ExecStart=/usr/local/bin/prometheus \
+  --config.file /etc/prometheus/prometheus.yml \
+  --storage.tsdb.path /var/lib/prometheus/
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### SNMP Exporter
+
+My install script hardcoded a version that was already out of date. I started checking the GitHub API for the actual latest release before downloading, going forward, and installed v0.30.1.
+
+Enabled SNMP on the MikroTik:
+
+```
+/snmp set enabled=yes
+/snmp community set [find default=yes] name=public
+```
+
+Tested the full chain manually before wiring it into Prometheus:
+
+```bash
+curl "http://localhost:9116/snmp?target=10.0.10.1&module=if_mib"
+```
+
+This returned real interface data for every VLAN and physical port, confirming SNMP Exporter could successfully query the router.
+
+### Wiring Prometheus to SNMP Exporter
+
+Added a scrape job to `prometheus.yml` that routes the actual SNMP query through the exporter via relabeling, which is the standard pattern for any Prometheus exporter that proxies to a third-party device:
+
+```yaml
+  - job_name: 'mikrotik'
+    static_configs:
+      - targets:
+          - 10.0.10.1
+    metrics_path: /snmp
+    params:
+      module: [if_mib]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9116
+```
+
+Confirmed via Prometheus's own Targets page that both jobs (self-monitoring and MikroTik) showed UP.
+
+### Grafana
+
+Install failed the first time because the GPG key download for the apt repo came back empty, so apt correctly refused to trust an unsigned source. Re-ran the key import using `gpg --dearmor` properly instead of assuming the raw curl output would work as a valid keyring:
+
+```bash
+wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor | sudo tee /usr/share/keyrings/grafana.key > /dev/null
+```
+
+After that, install and service start went cleanly. Connected Grafana to Prometheus as a data source (`http://localhost:9090`, confirmed with "Successfully queried the Prometheus API"), then built a dashboard with panels for:
+
+- VLAN interface traffic rate (`rate(ifHCInOctets{ifName=~"vlan.*"}[5m])`)
+- Interface status (`ifOperStatus{ifName=~"vlan.*"}`)
+- Broadcast packet rate (`rate(ifHCInBroadcastPkts{ifName=~"vlan.*"}[5m])`)
+- Bandwidth gauge (`rate(ifHCInOctets{ifName=~"vlan.*"}[5m]) * 8`)
+
+### TP-Link switch SNMP
+
+Checked whether the TL-SG108E supports SNMP so I could monitor it too. It's TP-Link's budget "Easy Smart" tier, one step below their SNMP-capable JetStream line, and there's no SNMP menu anywhere in its web UI. I'm treating this as a confirmed hardware limitation rather than something to work around.
+
+## Phase 4: Remote access
+
+I'd set up Tailscale on this host previously, but when I checked, it wasn't actually installed anymore, likely lost during an earlier Proxmox VE version migration. Reinstalled and reauthenticated:
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+tailscale up
+```
+
+To reach the lab VMs over Tailscale without installing it on each one individually, I advertised the lab subnet from the host:
+
+```bash
+tailscale up --advertise-routes=10.0.20.0/24
+```
+
+Approved the route in the Tailscale admin console. It didn't work at first, traffic just silently failed to route, because IP forwarding was disabled on the host by default. Tailscale warns about this during `up` but doesn't block the command on it. Fixed by explicitly enabling it:
+
+```
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+```
+
+in `/etc/sysctl.d/99-tailscale.conf`, applied with `sysctl -p`. After that, I could SSH into any of the lab VMs from my laptop over Tailscale regardless of which network I was physically on.
+
+## Where things stand
+
+<table>
+<tr><th>System</th><th>Access</th></tr>
+<tr><td>Proxmox host</td><td><code>ssh root@192.168.88.10</code> (local) or <code>ssh root@100.79.197.10</code> (Tailscale, anywhere)</td></tr>
+<tr><td>ubuntu-services</td><td><code>ssh buike-lab@10.0.20.108</code></td></tr>
+<tr><td>monitoring01</td><td><code>ssh buike-lab@10.0.20.109</code> (Tailscale-reachable via subnet route)</td></tr>
+<tr><td>linux-practice01</td><td><code>ssh buike-lab@10.0.20.107</code> (Tailscale-reachable via subnet route)</td></tr>
+<tr><td>MikroTik</td><td><code>ssh admin@10.0.10.1</code></td></tr>
+</table>
+
+## Design decisions
+
+**Kept the existing 10.0.x.0/24 addressing** instead of matching a reference doc's 10.10.x.0/24 scheme. Renumbering working VLANs for no functional gain wasn't worth the disruption to DHCP scopes and static IPs already built on top of them.
+
+**Folded the planned NAS/Samba VM into ubuntu-services** rather than running it as a separate VM. With only 16GB of host RAM and four other VMs already running, this was a deliberate resource trade-off rather than following the original plan literally.
+
+**Restricted personal-to-lab access to specific management ports** rather than allowing the whole VLAN 40 subnet through. A fully open rule would mean a compromised laptop has unrestricted access to everything in the lab.
+
+**Built the monitoring stack bare-metal instead of in Docker.** This meant actually working through real systemd behavior, config file paths, and service dependencies by hand, rather than having Docker abstract that away. Worth revisiting as a containerized rebuild later, now with an actual understanding of what's happening underneath.
+
+## Things that broke
+
+- Forgot the MikroTik admin password partway through. Recovered via Winbox's MAC-based connection instead of a factory reset, which would have wiped the whole existing VLAN/firewall config.
+- A `!` in a new password broke RouterOS's terminal parser, since it treats `!` specially outside quotes.
+- Adding VLAN 40 locked me out of the router entirely from any VLAN, not just the new one, because none of the VLAN interfaces were in the router's `LAN` interface list.
+- Prometheus crash-looped on first start because the install script's `mv` command silently failed on a folder that no longer exists in newer releases, leaving the config file in the wrong place.
+- SNMP Exporter install script had a stale hardcoded version.
+- Grafana's apt repo key failed signature verification because the initial key download was empty.
+- Tailscale had gone missing from the host at some point after being set up previously.
+- Tailscale's subnet route was approved but non-functional until I manually enabled IP forwarding on the host.
+- `linux-practice01`'s installer hung for 5+ minutes on 1GB RAM before I bumped it to 2GB.
+
+## What's still open
+
+- Actually building the Samba/NAS share on `ubuntu-services`
+- Site-to-site VPN and automated encrypted backups to AWS S3
+- Using `linux-practice01` for something
