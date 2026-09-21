@@ -1,6 +1,6 @@
 # Homelab: VLAN Segmentation + Monitoring
 
-![Homelab VLAN Segmentation and Monitoring architecture diagram](./images/homelab-vlan-monitoring-banner(2).png)
+![Homelab VLAN Segmentation and Monitoring architecture diagram](./images/homelab-vlan-monitoring-banner (2).png)
 
 I rebuilt my homelab's network segmentation from scratch, added a dedicated personal VLAN with one-way trust isolation, provisioned Ubuntu Server VMs, stood up a monitoring stack (Prometheus + SNMP Exporter + Grafana), extended remote access over Tailscale into the lab subnet, and then grew the single Proxmox host into a two-node cluster with both nodes running as VLAN-aware trunks.
 
